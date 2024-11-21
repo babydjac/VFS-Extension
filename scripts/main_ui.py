@@ -105,7 +105,6 @@ def create_masks(project_title, use_fast_mode=False, use_jit=True):
 def extract_keyframes(project_title, include_first_last=False, max_keyframes_per_folder=20):
     frame_dir = os.path.join(PARENT_DIR, project_title, "video_frames")
     keyframe_dir = os.path.join(PARENT_DIR, project_title, "keyframes")
-    mask_dir = os.path.join(PARENT_DIR, project_title, "video_masks")
 
     if not os.path.exists(frame_dir):
         return "Ensure 'video_frames' directory exists in the project folder."
@@ -124,35 +123,27 @@ def extract_keyframes(project_title, include_first_last=False, max_keyframes_per
         elif i % 8 == 0:
             keyframe_indices.append(i)
 
+    if len(keyframe_indices) <= max_keyframes_per_folder:
+        for idx in keyframe_indices:
+            shutil.copy(frame_paths[idx], os.path.join(keyframe_dir, os.path.basename(frame_paths[idx])))
+        return "Keyframes saved to root project directory."
+
     num_chunks = math.ceil(len(keyframe_indices) / max_keyframes_per_folder)
     for chunk_index in range(num_chunks):
         subfolder_name = str(chunk_index + 1)
         subfolder_path = os.path.join(PARENT_DIR, project_title, subfolder_name)
-        sub_frame_dir = os.path.join(subfolder_path, "video_frames")
-        sub_keyframe_dir = os.path.join(subfolder_path, "keyframes")
-        sub_mask_dir = os.path.join(subfolder_path, "video_masks")
-        os.makedirs(sub_frame_dir, exist_ok=True)
-        os.makedirs(sub_keyframe_dir, exist_ok=True)
-        os.makedirs(sub_mask_dir, exist_ok=True)
+        os.makedirs(os.path.join(subfolder_path, "video_frames"), exist_ok=True)
+        os.makedirs(os.path.join(subfolder_path, "keyframes"), exist_ok=True)
 
         start_idx = int(chunk_index * max_keyframes_per_folder)
         end_idx = int(min((chunk_index + 1) * max_keyframes_per_folder, len(keyframe_indices)))
         current_keyframe_indices = keyframe_indices[start_idx:end_idx]
 
         for idx in current_keyframe_indices:
-            shutil.move(frame_paths[idx], os.path.join(sub_frame_dir, os.path.basename(frame_paths[idx])))
-            shutil.move(frame_paths[idx], os.path.join(sub_keyframe_dir, os.path.basename(frame_paths[idx])))
-            mask_path = os.path.join(mask_dir, os.path.basename(frame_paths[idx]))
-            if os.path.exists(mask_path):
-                shutil.move(mask_path, os.path.join(sub_mask_dir, os.path.basename(frame_paths[idx])))
+            shutil.copy(frame_paths[idx], os.path.join(subfolder_path, "video_frames", os.path.basename(frame_paths[idx])))
+            shutil.copy(frame_paths[idx], os.path.join(subfolder_path, "keyframes", os.path.basename(frame_paths[idx])))
 
-    # Cleanup: remove original directories after successful copying
-    if all(os.listdir(frame_dir) == [] for dir in [frame_dir, keyframe_dir, mask_dir]):
-        shutil.rmtree(frame_dir)
-        shutil.rmtree(keyframe_dir)
-        shutil.rmtree(mask_dir)
-
-    return f"Keyframes and masks split into {num_chunks} folders and original folders removed."
+    return f"Keyframes split into {num_chunks} folders."
 
 # Rename Function
 def rename_files(project_title):
